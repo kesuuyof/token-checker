@@ -62,6 +62,10 @@ struct MenuBarLabel: View {
 
     private func percentLabel(_ value: Double?) -> String {
         guard let v = value else { return "--%" }
-        return "\(Int((v * 100).rounded()))%"
+        // メニューバーは横幅が限られるため 100% で頭打ちにし、超過は "+" で示す。
+        // RateLimit.utilization は仕様上 1.0 を超えうる（Anthropic API 既知挙動）。
+        if v > 1.0 { return "100%+" }
+        let clamped = max(0, v)
+        return "\(Int((clamped * 100).rounded()))%"
     }
 }

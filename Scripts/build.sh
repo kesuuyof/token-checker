@@ -92,18 +92,34 @@ if ! ${NO_SIGN}; then
     info "Code signing ${APP_BUNDLE}..."
     # 注: || true を末尾に入れる必要がある．grep が一致無しで exit 1 を返すと
     # set -euo pipefail の pipefail と errexit が組み合わさってここで script が落ちる．
-    IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep -E '"Apple Development|Developer ID' | head -1 | sed -E 's/.*"(.*)"/\1/' || true)
-    if [[ -n "${IDENTITY}" ]]; then
-        codesign --force --sign "${IDENTITY}" \
+    #
+    # identity の優先順位:
+    #   1. Apple Development … ローカル実行用、Gatekeeper も通る、Notarization 不要
+    #   2. Developer ID Application … 配布用だが Notarization 必須。未公証だと Gatekeeper
+    #      にブロックされるため警告を出してから使う
+    #   3. なし … ad-hoc 署名にフォールバック
+    APPLE_DEV_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep '"Apple Development' | head -1 | sed -E 's/.*"(.*)"/\1/' || true)
+    DEVID_IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep '"Developer ID Application' | head -1 | sed -E 's/.*"(.*)"/\1/' || true)
+
+    if [[ -n "${APPLE_DEV_IDENTITY}" ]]; then
+        codesign --force --sign "${APPLE_DEV_IDENTITY}" \
             --entitlements "${ENTITLEMENTS}" \
             --options runtime \
             "${APP_BUNDLE}"
-        info "Signed with: ${IDENTITY}"
-    else
-        warn "No signing identity found; using ad-hoc signature"
-        codesign --force --sign - \
+        info "Signed with: ${APPLE_DEV_IDENTITY}"
+    elif [[ -n "${DEVID_IDENTITY}" ]]; then
+        warn "Apple Development identity not found; falling back to Developer ID."
+        warn "Notarization なしでは Gatekeeper にブロックされる場合があります."
+        codesign --force --sign "${DEVID_IDENTITY}" \
             --entitlements "${ENTITLEMENTS}" \
+            --options runtime \
             "${APP_BUNDLE}"
+        info "Signed with: ${DEVID_IDENTITY}"
+    else
+        warn "No signing identity found; using ad-hoc signature."
+        # ad-hoc 署名にはカーネルが entitlements も hardened runtime も信頼しないので
+        # 渡さない（渡しても無意味で誤解を招く）．
+        codesign --force --sign - "${APP_BUNDLE}"
         info "Signed with ad-hoc identity"
     fi
 fi

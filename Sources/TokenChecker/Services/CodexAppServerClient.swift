@@ -322,33 +322,43 @@ struct CodexRateLimitsDTO: Decodable, Sendable {
 extension CodexRateLimitsDTO {
     /// 5h (300 分) ウィンドウを抽出。
     func fiveHourRateLimit() -> RateLimit? {
-        window(forDurationMins: 300).map(Self.toRateLimit)
+        window(forDurationMins: 300).flatMap(Self.toRateLimit)
     }
 
     /// 週次 (10080 分) ウィンドウを抽出。
     func weeklyRateLimit() -> RateLimit? {
-        window(forDurationMins: 10080).map(Self.toRateLimit)
+        window(forDurationMins: 10080).flatMap(Self.toRateLimit)
     }
 
-    /// 全 snapshot から、指定分数のウィンドウを探す。primary/secondary 両方見る。
+    /// 指定分数のウィンドウを探す。primary/secondary 両方を見る。
+    ///
+    /// 優先順位:
+    ///   1. トップレベル `rateLimits` … 現アカウントの直接スナップショット
+    ///   2. `rateLimitsByLimitId` … 複数 limitId が同居しうる。Dictionary の
+    ///      iteration 順は Hasher seed 依存で起動ごとに変動するため、
+    ///      key ソートで安定化してから走査する。
     private func window(forDurationMins minutes: Int64) -> Window? {
-        var candidates: [Window] = []
         if let snap = rateLimits {
-            if let p = snap.primary   { candidates.append(p) }
-            if let s = snap.secondary { candidates.append(s) }
+            if let p = snap.primary,   p.windowDurationMins == minutes { return p }
+            if let s = snap.secondary, s.windowDurationMins == minutes { return s }
         }
-        for snap in (rateLimitsByLimitId ?? [:]).values {
-            if let p = snap.primary   { candidates.append(p) }
-            if let s = snap.secondary { candidates.append(s) }
+        let sortedSnapshots = (rateLimitsByLimitId ?? [:]).sorted(by: { $0.key < $1.key })
+        for (_, snap) in sortedSnapshots {
+            if let p = snap.primary,   p.windowDurationMins == minutes { return p }
+            if let s = snap.secondary, s.windowDurationMins == minutes { return s }
         }
-        return candidates.first(where: { $0.windowDurationMins == minutes })
+        return nil
     }
 
-    private static func toRateLimit(_ window: Window) -> RateLimit {
-        let percent = Double(window.usedPercent ?? 0)
-        // Window モデル内の usedPercent は 0-100 の Int なので /100 で 0.0-1.0 化
-        let utilization = max(0, percent / 100.0)
-        let date = Date(timeIntervalSince1970: TimeInterval(window.resetsAt ?? 0))
+    /// `usedPercent` または `resetsAt` が欠落しているウィンドウは「データなし」として nil 返却。
+    /// 旧実装は欠落値を 0 にフォールバックしていたため、Codex API がフィールドを返さなくなった
+    /// 際に `resetsAt = 1970-01-01` となり UI が永続的に「まもなくリセット」を表示してしまっていた。
+    private static func toRateLimit(_ window: Window) -> RateLimit? {
+        guard let used = window.usedPercent, let resets = window.resetsAt else { return nil }
+        // Window モデル内の usedPercent は 0-100 の Int 想定なので /100 で 0.0-1.0 化。
+        // 負値は API バグとして 0 に丸める。上限は呼び出し側 (MenuBarLabel) で表示時に処理。
+        let utilization = max(0, Double(used) / 100.0)
+        let date = Date(timeIntervalSince1970: TimeInterval(resets))
         return RateLimit(utilization: utilization, resetsAt: date)
     }
 }
