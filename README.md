@@ -76,3 +76,7 @@ defaults delete com.token-checker.app 2>/dev/null
 ## 免責事項
 
 本ソフトウェアは現状有姿 (as-is) で提供されるものであり、動作・安全性・正確性について一切の保証を行わない。本ソフトウェアの利用に起因して発生したいかなる損害 (データ損失、アカウント停止、トークン漏洩、セキュリティインシデント等を含むがこれに限らない) についても、作者は一切の責任を負わない。利用者自身の責任において使用すること。
+
+## 謝辞
+
+UI のデザインは [s-age/ccmeter](https://github.com/s-age/ccmeter)（MIT License）を参考にした。MIT ライセンスの全文は [`THIRD_PARTY_NOTICES.md`](./THIRD_PARTY_NOTICES.md) に同梱している。

@@ -10,8 +10,6 @@
 #   ./Scripts/build.sh --user-install   # 上記＋ ~/Applications にコピー
 #   ./Scripts/build.sh --clean          # 先にビルドキャッシュを掃除
 #   ./Scripts/build.sh --no-sign        # 署名スキップ（推奨しない）
-#
-# 参考: s-age/ccmeter (MIT) — 基本構造を借用．
 # =============================================================================
 set -euo pipefail
 
@@ -87,6 +85,15 @@ if [[ ! -f Resources/AppIcon.icns ]]; then
     exit 1
 fi
 cp Resources/AppIcon.icns "${RESOURCES}/"
+
+# MIT 帰属表示の同梱: ccmeter (MIT) 由来部分を含むため、配布バイナリ内に
+# ライセンス本文と著作権表示を同梱する必要がある．
+if [[ -f THIRD_PARTY_NOTICES.md ]]; then
+    cp THIRD_PARTY_NOTICES.md "${RESOURCES}/"
+else
+    error "THIRD_PARTY_NOTICES.md が見つかりません。MIT 帰属表示のため必須です。"
+    exit 1
+fi
 
 if ! ${NO_SIGN}; then
     info "Code signing ${APP_BUNDLE}..."

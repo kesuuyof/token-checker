@@ -4,7 +4,7 @@ import Foundation
 ///
 /// `/usr/bin/security find-generic-password -s "Claude Code-credentials" -w` を spawn する。
 /// 直接 Security framework を叩いてもよいが、CLI 経由のほうが ACL 確認のダイアログ UX が
-/// 安定する（CCMeter と同じ方針）。
+/// 安定する。
 struct KeychainTokenSource: Sendable {
     static let serviceName = "Claude Code-credentials"
 
@@ -65,7 +65,7 @@ struct KeychainTokenSource: Sendable {
     }
 }
 
-/// Claude Code が Keychain に保存する JSON 構造。CCMeter のフィクスチャと一致する形を採用。
+/// Claude Code が Keychain に保存する JSON 構造。
 private struct KeychainPayload: Decodable {
     let claudeAiOauth: OAuth?
 
