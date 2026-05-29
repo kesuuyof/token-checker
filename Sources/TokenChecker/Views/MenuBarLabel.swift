@@ -20,6 +20,7 @@ struct MenuBarLabel: View {
     private var renderedImage: NSImage? {
         let claude = utilization(from: viewModel.snapshot.claude)
         let codex = utilization(from: viewModel.snapshot.codex)
+        let copilot = utilization(from: viewModel.snapshot.copilot)
         let content = HStack(spacing: 6) {
             HStack(spacing: 3) {
                 DonutChartView(
@@ -39,6 +40,16 @@ struct MenuBarLabel: View {
                     center: .sfSymbol("terminal.fill", scale: 0.48)
                 )
                 Text(percentLabel(codex))
+                    .font(.system(size: 11, weight: .semibold))
+            }
+            HStack(spacing: 3) {
+                DonutChartView(
+                    value: copilot ?? 0,
+                    size: 20,
+                    lineWidth: 3,
+                    center: .sfSymbol("chevron.left.forwardslash.chevron.right", scale: 0.42)
+                )
+                Text(percentLabel(copilot))
                     .font(.system(size: 11, weight: .semibold))
             }
         }

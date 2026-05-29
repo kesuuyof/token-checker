@@ -1,6 +1,7 @@
 import Foundation
 import Observation
 import OSLog
+import AppKit
 
 @MainActor
 @Observable
@@ -9,6 +10,7 @@ final class UsageViewModel {
     // nonisolated 化する。providers 自体は immutable なので Sendable 違反は起きない。
     private nonisolated let claudeProvider: UsageProvider
     private nonisolated let codexProvider: UsageProvider
+    private nonisolated let copilotProvider: UsageProvider
 
     var snapshot: UsageSnapshot = .empty
     var isLoading: Bool = false
@@ -18,10 +20,12 @@ final class UsageViewModel {
 
     init(
         claudeProvider: UsageProvider = ClaudeUsageProvider(),
-        codexProvider: UsageProvider = CodexUsageProvider()
+        codexProvider: UsageProvider = CodexUsageProvider(),
+        copilotProvider: UsageProvider = CopilotUsageProvider()
     ) {
         self.claudeProvider = claudeProvider
         self.codexProvider = codexProvider
+        self.copilotProvider = copilotProvider
         self.pollingInterval = Self.loadPersistedInterval()
     }
 
@@ -46,9 +50,11 @@ final class UsageViewModel {
     nonisolated func makeShutdownHandler() -> @Sendable () async -> Void {
         let claude = claudeProvider
         let codex = codexProvider
+        let copilot = copilotProvider
         return {
             await claude.shutdown()
             await codex.shutdown()
+            await copilot.shutdown()
         }
     }
 
@@ -58,9 +64,10 @@ final class UsageViewModel {
 
         async let claude = fetchClaude()
         async let codex = fetchCodex()
+        async let copilot = fetchCopilot()
 
-        let (c, x) = await (claude, codex)
-        snapshot = UsageSnapshot(claude: c, codex: x, fetchedAt: Date())
+        let (c, x, p) = await (claude, codex, copilot)
+        snapshot = UsageSnapshot(claude: c, codex: x, copilot: p, fetchedAt: Date())
     }
 
     private func fetchClaude() async -> Result<ServiceUsage, DomainError> {
@@ -85,6 +92,17 @@ final class UsageViewModel {
         }
     }
 
+    private func fetchCopilot() async -> Result<ServiceUsage, DomainError> {
+        do {
+            return .success(try await copilotProvider.fetch())
+        } catch let err as DomainError {
+            Logger.copilot.error("fetch failed: \(err.localizedDescription)")
+            return .failure(err)
+        } catch {
+            return .failure(.network(error.localizedDescription))
+        }
+    }
+
     // MARK: - ログインボタン
 
     /// どのサービスを再ログインするかは enum 型で表現する。
@@ -103,6 +121,14 @@ final class UsageViewModel {
 
     func openClaudeLogin() { spawnLogin(.claude) }
     func openCodexLogin()  { spawnLogin(.codex) }
+
+    /// Copilot は IDE 拡張 / `gh copilot` 拡張それぞれが独自にデバイスフローを駆動するため、
+    /// Terminal で完結する単一コマンドが無い。ユーザに状態を確認させるため、ブラウザで
+    /// GitHub の Copilot 設定ページを開く。
+    func openCopilotLogin() {
+        guard let url = URL(string: "https://github.com/settings/copilot") else { return }
+        NSWorkspace.shared.open(url)
+    }
 
     private func spawnLogin(_ target: LoginTarget) {
         let script = """

@@ -26,6 +26,15 @@ struct UsagePopoverView: View {
             )
 
             Divider()
+
+            ServiceSectionView(
+                title: "GitHub Copilot",
+                brand: .copilot,
+                result: viewModel.snapshot.copilot,
+                loginAction: { viewModel.openCopilotLogin() }
+            )
+
+            Divider()
             settingsBlock
             Divider()
             footer

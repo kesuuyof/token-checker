@@ -5,6 +5,7 @@ import SwiftUI
 enum ServiceBrand {
     case claude
     case codex
+    case copilot
 }
 
 struct ServiceSectionView: View {
@@ -47,18 +48,49 @@ struct ServiceSectionView: View {
     @ViewBuilder
     private func usageBlock(_ usage: ServiceUsage) -> some View {
         if let five = usage.fiveHour {
-            limitRow(label: "5時間", limit: five)
+            limitRow(label: primaryLabel(for: usage), limit: five)
         } else {
-            Text("5時間ウィンドウのデータがありません")
+            Text(primaryMissingLabel(for: usage))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
         }
 
         if let weekly = usage.weekly {
-            secondaryRow(label: "週次", limit: weekly)
+            secondaryRow(label: secondaryLabel(for: usage), limit: weekly)
         }
-        if let sonnet = usage.weeklySonnet {
-            secondaryRow(label: "週次 (Sonnet)", limit: sonnet)
+        if let sonnet = usage.weeklySonnet, let tertiary = tertiaryLabel(for: usage) {
+            secondaryRow(label: tertiary, limit: sonnet)
+        }
+    }
+
+    private func primaryLabel(for usage: ServiceUsage) -> String {
+        switch brand {
+        case .claude, .codex: return "5時間"
+        case .copilot: return usage.copilotFreeMode ? "チャット" : "プレミアム要求"
+        }
+    }
+
+    private func primaryMissingLabel(for usage: ServiceUsage) -> String {
+        switch brand {
+        case .claude, .codex: return "5時間ウィンドウのデータがありません"
+        case .copilot: return usage.copilotFreeMode
+            ? "チャット枠のデータがありません"
+            : "プレミアム要求のデータがありません"
+        }
+    }
+
+    private func secondaryLabel(for usage: ServiceUsage) -> String {
+        switch brand {
+        case .claude, .codex: return "週次"
+        case .copilot: return usage.copilotFreeMode ? "コード補完" : "チャット"
+        }
+    }
+
+    private func tertiaryLabel(for usage: ServiceUsage) -> String? {
+        switch brand {
+        case .claude: return "週次 (Sonnet)"
+        case .codex: return nil
+        case .copilot: return usage.copilotFreeMode ? nil : "コード補完"
         }
     }
 
@@ -117,6 +149,8 @@ struct ServiceSectionView: View {
             Image(systemName: "sparkles")
         case .codex:
             Image(systemName: "terminal.fill")
+        case .copilot:
+            Image(systemName: "chevron.left.forwardslash.chevron.right")
         }
     }
 
