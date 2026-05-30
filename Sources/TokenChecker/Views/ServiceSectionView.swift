@@ -12,6 +12,7 @@ struct ServiceSectionView: View {
     let title: String
     let brand: ServiceBrand
     let result: Result<ServiceUsage, DomainError>?
+    let language: AppLanguage
     let loginAction: () -> Void
 
     var body: some View {
@@ -29,12 +30,12 @@ struct ServiceSectionView: View {
                     Image(systemName: "person.badge.key")
                 }
                 .buttonStyle(.borderless)
-                .help("\(title) にログイン")
+                .help(L10n.format("service.login.help", language: language, title))
             }
 
             switch result {
             case .none:
-                Text("取得中…")
+                Text(L10n.tr("status.loading", language: language))
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
             case .some(.success(let usage)):
@@ -65,32 +66,30 @@ struct ServiceSectionView: View {
 
     private func primaryLabel(for usage: ServiceUsage) -> String {
         switch brand {
-        case .claude, .codex: return "5時間"
-        case .copilot: return usage.copilotFreeMode ? "チャット" : "プレミアム要求"
+        case .claude, .codex: return L10n.tr("window.five_hour", language: language)
+        case .copilot: return L10n.tr(usage.copilotFreeMode ? "window.copilot.chat" : "window.copilot.premium", language: language)
         }
     }
 
     private func primaryMissingLabel(for usage: ServiceUsage) -> String {
         switch brand {
-        case .claude, .codex: return "5時間ウィンドウのデータがありません"
-        case .copilot: return usage.copilotFreeMode
-            ? "チャット枠のデータがありません"
-            : "プレミアム要求のデータがありません"
+        case .claude, .codex: return L10n.tr("window.five_hour.no_data", language: language)
+        case .copilot: return L10n.tr(usage.copilotFreeMode ? "window.copilot.chat.no_data" : "window.copilot.premium.no_data", language: language)
         }
     }
 
     private func secondaryLabel(for usage: ServiceUsage) -> String {
         switch brand {
-        case .claude, .codex: return "週次"
-        case .copilot: return usage.copilotFreeMode ? "コード補完" : "チャット"
+        case .claude, .codex: return L10n.tr("window.weekly", language: language)
+        case .copilot: return L10n.tr(usage.copilotFreeMode ? "window.copilot.completion" : "window.copilot.chat", language: language)
         }
     }
 
     private func tertiaryLabel(for usage: ServiceUsage) -> String? {
         switch brand {
-        case .claude: return "週次 (Sonnet)"
+        case .claude: return L10n.tr("window.weekly_sonnet", language: language)
         case .codex: return nil
-        case .copilot: return usage.copilotFreeMode ? nil : "コード補完"
+        case .copilot: return usage.copilotFreeMode ? nil : L10n.tr("window.copilot.completion", language: language)
         }
     }
 
@@ -129,10 +128,10 @@ struct ServiceSectionView: View {
             HStack(spacing: 4) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                Text("取得失敗")
+                Text(L10n.tr("error.fetch_failed", language: language))
                     .font(.system(size: 12, weight: .medium))
             }
-            Text(err.errorDescription ?? "原因不明")
+            Text(err.localizedDescription(language: language))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -162,12 +161,19 @@ struct ServiceSectionView: View {
 
     private func resetLabel(_ date: Date) -> String {
         let now = Date()
-        if date <= now { return "まもなくリセット" }
+        if date <= now { return L10n.tr("reset.soon", language: language) }
         let f = DateComponentsFormatter()
+        var calendar = Calendar.current
+        calendar.locale = language.locale
+        f.calendar = calendar
         f.allowedUnits = [.hour, .minute]
         f.unitsStyle = .abbreviated
         let rel = f.string(from: now, to: date) ?? "—"
-        let absolute = DateFormatter.localizedString(from: date, dateStyle: .none, timeStyle: .short)
-        return "あと \(rel) (\(absolute) リセット)"
+        let formatter = DateFormatter()
+        formatter.locale = language.locale
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        let absolute = formatter.string(from: date)
+        return L10n.format("reset.remaining", language: language, rel, absolute)
     }
 }
