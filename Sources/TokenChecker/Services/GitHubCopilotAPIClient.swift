@@ -83,11 +83,13 @@ private final class CopilotNoRedirectDelegate: NSObject, URLSessionTaskDelegate,
 
 // MARK: - DTO
 
-/// `copilot_internal/user` のレスポンス。Free プランと Paid プランで構造が異なる。
+/// `copilot_internal/user` のレスポンス。
 ///
-/// - Paid: `quota_snapshots` に `premium_interactions` / `chat` / `completions` が並ぶ。
-/// - Free: `limited_user_quotas` (= remaining)、`monthly_quotas` (= entitlement)、
-///         `limited_user_reset_date` のセットで返る。`quota_snapshots` は無い。
+/// - 現行 API: Free / Paid とも `quota_snapshots` に `premium_interactions` / `chat` /
+///   `completions` が並ぶ。各 bucket は `entitlement` / `remaining` / `percent_remaining` を持つ。
+///   Free プランは premium_interactions を `entitlement: 0`（= 枠なし）で返す。
+/// - 旧 API（フォールバックとして残置）: Free は `limited_user_quotas` (= remaining)、
+///   `monthly_quotas` (= entitlement)、`limited_user_reset_date` のセットで返していた。
 struct CopilotUsageDTO: Decodable, Sendable {
     // Paid
     let quotaSnapshots: Snapshots?
@@ -147,9 +149,15 @@ struct CopilotUsageDTO: Decodable, Sendable {
 }
 
 extension CopilotUsageDTO.Bucket {
-    /// `unlimited == true` の場合は使用率に意味が無いので nil を返す（UI 側で非表示）。
+    /// 使用率に意味が無い枠は nil を返す（UI 側で非表示）:
+    ///   - `unlimited == true`: 上限なし。
+    ///   - `entitlement == 0`: そのプランに存在しない枠（例: Free の premium_interactions）。
+    ///     現行 API は Free でも premium_interactions を entitlement 0 / percent_remaining 0 で
+    ///     返すため、これを除外しないと「100% 使用」と誤表示される。
+    ///     ※ entitlement > 0 で remaining 0（= 使い切り）は 100% 使用として正しく表示する。
     func toRateLimit(fallbackReset: String?) -> RateLimit? {
         if unlimited == true { return nil }
+        if let ent = entitlement, ent == 0 { return nil }
 
         let utilization: Double?
         if let pct = percentRemaining {
