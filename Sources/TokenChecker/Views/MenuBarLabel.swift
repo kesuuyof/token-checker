@@ -21,37 +21,27 @@ struct MenuBarLabel: View {
         let claude = utilization(from: viewModel.snapshot.claude)
         let codex = utilization(from: viewModel.snapshot.codex)
         let copilot = utilization(from: viewModel.snapshot.copilot)
-        let content = HStack(spacing: 6) {
-            HStack(spacing: 3) {
-                DonutChartView(
-                    value: claude ?? 0,
-                    size: 20,
-                    lineWidth: 3,
-                    center: .sfSymbol("sparkles", scale: 0.48)
-                )
-                Text(percentLabel(claude))
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            HStack(spacing: 3) {
-                DonutChartView(
-                    value: codex ?? 0,
-                    size: 20,
-                    lineWidth: 3,
-                    center: .sfSymbol("terminal.fill", scale: 0.48)
-                )
-                Text(percentLabel(codex))
-                    .font(.system(size: 11, weight: .semibold))
-            }
-            HStack(spacing: 3) {
-                DonutChartView(
-                    value: copilot ?? 0,
-                    size: 20,
-                    lineWidth: 3,
-                    center: .sfSymbol("chevron.left.forwardslash.chevron.right", scale: 0.42)
-                )
-                Text(percentLabel(copilot))
-                    .font(.system(size: 11, weight: .semibold))
-            }
+        // 横幅節約のため % の文字列表示は持たず、ドーナツのリング塗り（量）と
+        // 色（緑 <70% / 橙 <85% / 赤）だけで使用率を表す。
+        let content = HStack(spacing: 4) {
+            DonutChartView(
+                value: claude ?? 0,
+                size: 20,
+                lineWidth: 3,
+                center: .sfSymbol("sparkles", scale: 0.48)
+            )
+            DonutChartView(
+                value: codex ?? 0,
+                size: 20,
+                lineWidth: 3,
+                center: .sfSymbol("terminal.fill", scale: 0.48)
+            )
+            DonutChartView(
+                value: copilot ?? 0,
+                size: 20,
+                lineWidth: 3,
+                center: .sfSymbol("chevron.left.forwardslash.chevron.right", scale: 0.42)
+            )
         }
         .padding(.horizontal, 2)
         .foregroundStyle(Color.primary)
@@ -69,14 +59,5 @@ struct MenuBarLabel: View {
     private func utilization(from result: Result<ServiceUsage, DomainError>?) -> Double? {
         guard case .success(let usage) = result else { return nil }
         return usage.fiveHour?.utilization
-    }
-
-    private func percentLabel(_ value: Double?) -> String {
-        guard let v = value else { return "--%" }
-        // メニューバーは横幅が限られるため 100% で頭打ちにし、超過は "+" で示す。
-        // RateLimit.utilization は仕様上 1.0 を超えうる（Anthropic API 既知挙動）。
-        if v > 1.0 { return "100%+" }
-        let clamped = max(0, v)
-        return "\(Int((clamped * 100).rounded()))%"
     }
 }
