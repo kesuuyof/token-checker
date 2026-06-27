@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Claude / Codex 1 サービスぶんの詳細セクション。
 /// どのブランドのセクションかを表す。
@@ -60,7 +61,8 @@ struct ServiceSectionView: View {
             secondaryRow(
                 label: secondaryLabel(for: usage),
                 limit: weekly,
-                showsResetCountdown: showsSecondaryResetCountdown
+                showsResetCountdown: showsSecondaryResetCountdown,
+                calendarURL: weeklyReminderURL(for: weekly)
             )
         }
         if let sonnet = usage.weeklySonnet, let tertiary = tertiaryLabel(for: usage) {
@@ -119,7 +121,12 @@ struct ServiceSectionView: View {
         }
     }
 
-    private func secondaryRow(label: String, limit: RateLimit, showsResetCountdown: Bool) -> some View {
+    private func secondaryRow(
+        label: String,
+        limit: RateLimit,
+        showsResetCountdown: Bool,
+        calendarURL: URL? = nil
+    ) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack {
                 Text(label)
@@ -129,6 +136,15 @@ struct ServiceSectionView: View {
                 Text("\(limit.percent)%")
                     .font(.system(size: 11))
                     .foregroundStyle(color(for: limit.utilization))
+                if let calendarURL {
+                    Button {
+                        NSWorkspace.shared.open(calendarURL)
+                    } label: {
+                        Image(systemName: "calendar.badge.plus")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L10n.tr("calendar.reset_reminder.help", language: language))
+                }
             }
             if showsResetCountdown {
                 Text(ResetCountdownFormatter.label(until: limit.resetsAt, language: language))
@@ -178,6 +194,19 @@ struct ServiceSectionView: View {
         switch brand {
         case .claude, .codex: return true
         case .copilot: return false
+        }
+    }
+
+    private func weeklyReminderURL(for limit: RateLimit) -> URL? {
+        switch brand {
+        case .claude, .codex:
+            return GoogleCalendarEventBuilder.eventURL(
+                serviceName: title,
+                resetDate: limit.resetsAt,
+                language: language
+            )
+        case .copilot:
+            return nil
         }
     }
 }

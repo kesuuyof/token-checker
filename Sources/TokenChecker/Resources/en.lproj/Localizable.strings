@@ -33,6 +33,9 @@
 "language.english" = "English";
 "language.japanese" = "日本語";
 "language.simplified_chinese" = "简体中文";
+"calendar.reset_reminder.details" = "%@ weekly reset: %@";
+"calendar.reset_reminder.help" = "Add reminder to Google Calendar";
+"calendar.reset_reminder.title" = "%@ weekly reset reminder";
 "reset.remaining" = "%@ remaining (%@ reset)";
 "reset.soon" = "Reset soon";
 "service.login.help" = "Log in to %@";

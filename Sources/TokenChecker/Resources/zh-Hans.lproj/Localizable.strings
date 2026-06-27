@@ -33,6 +33,9 @@
 "language.english" = "English";
 "language.japanese" = "日本語";
 "language.simplified_chinese" = "简体中文";
+"calendar.reset_reminder.details" = "%@ 每周重置：%@";
+"calendar.reset_reminder.help" = "添加提醒到 Google 日历";
+"calendar.reset_reminder.title" = "%@ 每周重置提醒";
 "reset.remaining" = "剩余 %@（%@ 重置）";
 "reset.soon" = "即将重置";
 "service.login.help" = "登录 %@";

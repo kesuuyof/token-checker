@@ -33,6 +33,9 @@
 "language.english" = "English";
 "language.japanese" = "日本語";
 "language.simplified_chinese" = "简体中文";
+"calendar.reset_reminder.details" = "%@ 週次リセット: %@";
+"calendar.reset_reminder.help" = "Google カレンダーにリマインダーを追加";
+"calendar.reset_reminder.title" = "%@ 週次リセットのリマインダー";
 "reset.remaining" = "あと %@ (%@ リセット)";
 "reset.soon" = "まもなくリセット";
 "service.login.help" = "%@ にログイン";
