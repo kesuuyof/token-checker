@@ -10,10 +10,12 @@ enum L10n {
     }
 
     private static func bundle(for language: AppLanguage) -> Bundle {
-        guard let path = Bundle.module.path(forResource: language.resourceName, ofType: "lproj"),
-              let bundle = Bundle(path: path) else {
-            return .module
+        for resourceName in [language.resourceName, language.resourceName.lowercased()] {
+            if let path = Bundle.module.path(forResource: resourceName, ofType: "lproj"),
+               let bundle = Bundle(path: path) {
+                return bundle
+            }
         }
-        return bundle
+        return .module
     }
 }

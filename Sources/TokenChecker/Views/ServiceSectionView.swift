@@ -61,11 +61,16 @@ struct ServiceSectionView: View {
             secondaryRow(
                 label: secondaryLabel(for: usage),
                 limit: weekly,
+                showsResetCountdown: showsSecondaryResetCountdown,
                 calendarURL: weeklyReminderURL(for: weekly)
             )
         }
         if let sonnet = usage.weeklySonnet, let tertiary = tertiaryLabel(for: usage) {
-            secondaryRow(label: tertiary, limit: sonnet)
+            secondaryRow(
+                label: tertiary,
+                limit: sonnet,
+                showsResetCountdown: showsSecondaryResetCountdown
+            )
         }
     }
 
@@ -110,29 +115,41 @@ struct ServiceSectionView: View {
                     .foregroundStyle(color(for: limit.utilization))
             }
             ProgressBarView(value: limit.utilization)
-            Text(resetLabel(limit.resetsAt))
+            Text(ResetCountdownFormatter.label(until: limit.resetsAt, language: language))
                 .font(.system(size: 10))
                 .foregroundStyle(.tertiary)
         }
     }
 
-    private func secondaryRow(label: String, limit: RateLimit, calendarURL: URL? = nil) -> some View {
-        HStack {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-            Spacer()
-            Text("\(limit.percent)%")
-                .font(.system(size: 11))
-                .foregroundStyle(color(for: limit.utilization))
-            if let calendarURL {
-                Button {
-                    NSWorkspace.shared.open(calendarURL)
-                } label: {
-                    Image(systemName: "calendar.badge.plus")
+    private func secondaryRow(
+        label: String,
+        limit: RateLimit,
+        showsResetCountdown: Bool,
+        calendarURL: URL? = nil
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("\(limit.percent)%")
+                    .font(.system(size: 11))
+                    .foregroundStyle(color(for: limit.utilization))
+                if let calendarURL {
+                    Button {
+                        NSWorkspace.shared.open(calendarURL)
+                    } label: {
+                        Image(systemName: "calendar.badge.plus")
+                    }
+                    .buttonStyle(.borderless)
+                    .help(L10n.tr("calendar.reset_reminder.help", language: language))
                 }
-                .buttonStyle(.borderless)
-                .help(L10n.tr("calendar.reset_reminder.help", language: language))
+            }
+            if showsResetCountdown {
+                Text(ResetCountdownFormatter.label(until: limit.resetsAt, language: language))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.tertiary)
             }
         }
     }
@@ -173,22 +190,11 @@ struct ServiceSectionView: View {
         return .red
     }
 
-    private func resetLabel(_ date: Date) -> String {
-        let now = Date()
-        if date <= now { return L10n.tr("reset.soon", language: language) }
-        let f = DateComponentsFormatter()
-        var calendar = Calendar.current
-        calendar.locale = language.locale
-        f.calendar = calendar
-        f.allowedUnits = [.hour, .minute]
-        f.unitsStyle = .abbreviated
-        let rel = f.string(from: now, to: date) ?? "—"
-        let formatter = DateFormatter()
-        formatter.locale = language.locale
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        let absolute = formatter.string(from: date)
-        return L10n.format("reset.remaining", language: language, rel, absolute)
+    private var showsSecondaryResetCountdown: Bool {
+        switch brand {
+        case .claude, .codex: return true
+        case .copilot: return false
+        }
     }
 
     private func weeklyReminderURL(for limit: RateLimit) -> URL? {
