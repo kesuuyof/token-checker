@@ -43,6 +43,12 @@
 "settings.launch_at_login" = "ログイン時に自動起動";
 "settings.refresh_interval" = "更新間隔";
 "status.loading" = "取得中…";
+"usage.matrix.agent" = "エージェント";
+"usage.matrix.calendar" = "Cal";
+"usage.matrix.no_data" = "データなし";
+"usage.matrix.overview" = "使用状況";
+"usage.matrix.reset" = "リセット";
+"usage.remaining.compact" = "残り %@";
 "window.copilot.chat" = "チャット";
 "window.copilot.chat.no_data" = "チャット枠のデータがありません";
 "window.copilot.completion" = "コード補完";

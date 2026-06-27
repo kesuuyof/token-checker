@@ -43,6 +43,12 @@
 "settings.launch_at_login" = "Launch at login";
 "settings.refresh_interval" = "Refresh interval";
 "status.loading" = "Fetching...";
+"usage.matrix.agent" = "Agent";
+"usage.matrix.calendar" = "Cal";
+"usage.matrix.no_data" = "No data";
+"usage.matrix.overview" = "Usage overview";
+"usage.matrix.reset" = "reset";
+"usage.remaining.compact" = "%@ left";
 "window.copilot.chat" = "Chat";
 "window.copilot.chat.no_data" = "No chat quota data";
 "window.copilot.completion" = "Code completions";

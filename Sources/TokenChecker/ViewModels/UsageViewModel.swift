@@ -14,6 +14,7 @@ final class UsageViewModel {
 
     var snapshot: UsageSnapshot = .empty
     var isLoading: Bool = false
+    @ObservationIgnored var onSnapshotChange: (() -> Void)?
     var pollingInterval: PollingInterval {
         didSet { persistInterval() }
     }
@@ -68,6 +69,7 @@ final class UsageViewModel {
 
         let (c, x, p) = await (claude, codex, copilot)
         snapshot = UsageSnapshot(claude: c, codex: x, copilot: p, fetchedAt: Date())
+        onSnapshotChange?()
     }
 
     private func fetchClaude() async -> Result<ServiceUsage, DomainError> {
