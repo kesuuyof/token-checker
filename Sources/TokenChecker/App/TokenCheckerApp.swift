@@ -2,48 +2,119 @@ import SwiftUI
 import AppKit
 
 @main
-struct TokenCheckerApp: App {
-    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
-    @State private var viewModel = UsageViewModel()
-    @State private var languageStore = LanguageStore()
-    @StateObject private var launchAtLogin = LaunchAtLoginStore()
-
-    var body: some Scene {
-        MenuBarExtra {
-            UsagePopoverView(
-                viewModel: viewModel,
-                languageStore: languageStore,
-                launchAtLogin: launchAtLogin
-            )
-                .onAppear {
-                    launchAtLogin.refresh()
-                    // 終了時に codex 子プロセスを始末するためのフックを AppDelegate に登録する。
-                    // viewModel 全体ではなく providers だけを閉じ込めた @Sendable クロージャを渡す。
-                    appDelegate.shutdownHandler = viewModel.makeShutdownHandler()
-                }
-        } label: {
-            MenuBarLabel(viewModel: viewModel)
-                .task(id: viewModel.pollingInterval) {
-                    await viewModel.runPollingLoop()
-                }
-        }
-        .menuBarExtraStyle(.window)
-    }
-}
-
-/// アプリ終了時に子プロセス (`codex app-server`) を確実に terminate するためのデリゲート。
-/// 「終了」ボタンも `NSApplication.shared.terminate(nil)` 経由でここを通る。
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
-    var shutdownHandler: (@Sendable () async -> Void)?
+final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+    private let viewModel = UsageViewModel()
+    private let languageStore = LanguageStore()
+    private let launchAtLogin = LaunchAtLoginStore()
+
+    private var statusItem: NSStatusItem?
+    private let popover = NSPopover()
+    private var pollingTask: Task<Void, Never>?
+    private var shutdownHandler: (@Sendable () async -> Void)?
+    private weak var anchorButton: NSStatusBarButton?
+
+    static func main() {
+        let app = NSApplication.shared
+        let delegate = AppDelegate()
+        app.delegate = delegate
+        app.setActivationPolicy(.accessory)
+        app.run()
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        shutdownHandler = viewModel.makeShutdownHandler()
+        viewModel.onSnapshotChange = { [weak self] in
+            self?.updateStatusItemImage()
+        }
+
+        configureStatusItem()
+        configurePopover()
+        launchAtLogin.refresh()
+
+        pollingTask = Task { [viewModel] in
+            await viewModel.runPollingLoop()
+        }
+    }
+
+    private func configureStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        statusItem = item
+
+        guard let button = item.button else { return }
+        button.target = self
+        button.action = #selector(togglePopover(_:))
+        button.imagePosition = .imageOnly
+        updateStatusItemImage()
+    }
+
+    private func configurePopover() {
+        popover.behavior = .transient
+        popover.animates = true
+        popover.delegate = self
+        popover.contentViewController = NSHostingController(rootView: UsagePopoverView(
+            viewModel: viewModel,
+            languageStore: languageStore,
+            launchAtLogin: launchAtLogin
+        ))
+    }
+
+    private func updateStatusItemImage() {
+        guard let button = statusItem?.button else { return }
+        if let image = MenuBarLabelRenderer.image(viewModel: viewModel) {
+            button.image = image
+            button.title = ""
+        } else {
+            button.image = nil
+            button.title = "TC"
+        }
+    }
+
+    @objc private func togglePopover(_ sender: NSStatusBarButton) {
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            showPopover(relativeTo: sender)
+        }
+    }
+
+    private func showPopover(relativeTo button: NSStatusBarButton) {
+        anchorButton = button
+        launchAtLogin.refresh()
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        centerPopover(relativeTo: button)
+        DispatchQueue.main.async { [weak self, weak button] in
+            guard let self, let button else { return }
+            self.centerPopover(relativeTo: button)
+        }
+    }
+
+    func popoverDidShow(_ notification: Notification) {
+        guard let anchorButton else { return }
+        centerPopover(relativeTo: anchorButton)
+    }
+
+    private func centerPopover(relativeTo button: NSStatusBarButton) {
+        guard
+            let popoverWindow = popover.contentViewController?.view.window,
+            let buttonWindow = button.window
+        else { return }
+
+        let anchorFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        let visibleFrame = (buttonWindow.screen ?? NSScreen.main)?.visibleFrame ?? anchorFrame
+        let positioned = CenteredPopoverPositioner.positionedFrame(
+            currentFrame: popoverWindow.frame,
+            anchorFrame: anchorFrame,
+            visibleFrame: visibleFrame
+        )
+        popoverWindow.setFrame(positioned, display: true)
+    }
 
     nonisolated func applicationWillTerminate(_ notification: Notification) {
-        // applicationWillTerminate は AppKit がメインスレッドから呼ぶ前提のため
-        // MainActor.assumeIsolated で MainActor isolated な shutdownHandler を取り出す。
-        // semaphore.wait でメインスレッドをブロックするため、Task.detached で別スレッドに逃がす。
-        // handler 本体は providers だけをキャプチャした @Sendable クロージャで、
-        // CodexAppServerClient (actor) のメソッドを await するだけ — MainActor ホップ不要なのでデッドロックしない。
-        let handler = MainActor.assumeIsolated { shutdownHandler }
+        let handler = MainActor.assumeIsolated { () -> (@Sendable () async -> Void)? in
+            pollingTask?.cancel()
+            return shutdownHandler
+        }
         guard let handler else { return }
         let semaphore = DispatchSemaphore(value: 0)
         Task.detached {

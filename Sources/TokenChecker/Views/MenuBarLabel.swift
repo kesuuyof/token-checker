@@ -10,14 +10,17 @@ struct MenuBarLabel: View {
     let viewModel: UsageViewModel
 
     var body: some View {
-        if let image = renderedImage {
+        if let image = MenuBarLabelRenderer.image(viewModel: viewModel) {
             Image(nsImage: image)
         } else {
             Text("TC ⏳")
         }
     }
+}
 
-    private var renderedImage: NSImage? {
+enum MenuBarLabelRenderer {
+    @MainActor
+    static func image(viewModel: UsageViewModel) -> NSImage? {
         let claude = utilization(from: viewModel.snapshot.claude)
         let codex = utilization(from: viewModel.snapshot.codex)
         let copilot = utilization(from: viewModel.snapshot.copilot)
@@ -56,7 +59,7 @@ struct MenuBarLabel: View {
         return image
     }
 
-    private func utilization(from result: Result<ServiceUsage, DomainError>?) -> Double? {
+    private static func utilization(from result: Result<ServiceUsage, DomainError>?) -> Double? {
         guard case .success(let usage) = result else { return nil }
         return usage.fiveHour?.utilization
     }

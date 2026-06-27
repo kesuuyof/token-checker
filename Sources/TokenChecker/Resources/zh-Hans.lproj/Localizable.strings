@@ -43,6 +43,12 @@
 "settings.launch_at_login" = "登录时自动启动";
 "settings.refresh_interval" = "刷新间隔";
 "status.loading" = "获取中...";
+"usage.matrix.agent" = "代理";
+"usage.matrix.calendar" = "日历";
+"usage.matrix.no_data" = "无数据";
+"usage.matrix.overview" = "使用概览";
+"usage.matrix.reset" = "重置";
+"usage.remaining.compact" = "剩余 %@";
 "window.copilot.chat" = "聊天";
 "window.copilot.chat.no_data" = "没有聊天额度数据";
 "window.copilot.completion" = "代码补全";
