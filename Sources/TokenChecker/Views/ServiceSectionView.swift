@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 /// Claude / Codex 1 サービスぶんの詳細セクション。
 /// どのブランドのセクションかを表す。
@@ -57,7 +58,11 @@ struct ServiceSectionView: View {
         }
 
         if let weekly = usage.weekly {
-            secondaryRow(label: secondaryLabel(for: usage), limit: weekly)
+            secondaryRow(
+                label: secondaryLabel(for: usage),
+                limit: weekly,
+                calendarURL: weeklyReminderURL(for: weekly)
+            )
         }
         if let sonnet = usage.weeklySonnet, let tertiary = tertiaryLabel(for: usage) {
             secondaryRow(label: tertiary, limit: sonnet)
@@ -111,7 +116,7 @@ struct ServiceSectionView: View {
         }
     }
 
-    private func secondaryRow(label: String, limit: RateLimit) -> some View {
+    private func secondaryRow(label: String, limit: RateLimit, calendarURL: URL? = nil) -> some View {
         HStack {
             Text(label)
                 .font(.system(size: 11))
@@ -120,6 +125,15 @@ struct ServiceSectionView: View {
             Text("\(limit.percent)%")
                 .font(.system(size: 11))
                 .foregroundStyle(color(for: limit.utilization))
+            if let calendarURL {
+                Button {
+                    NSWorkspace.shared.open(calendarURL)
+                } label: {
+                    Image(systemName: "calendar.badge.plus")
+                }
+                .buttonStyle(.borderless)
+                .help(L10n.tr("calendar.reset_reminder.help", language: language))
+            }
         }
     }
 
@@ -175,5 +189,18 @@ struct ServiceSectionView: View {
         formatter.timeStyle = .short
         let absolute = formatter.string(from: date)
         return L10n.format("reset.remaining", language: language, rel, absolute)
+    }
+
+    private func weeklyReminderURL(for limit: RateLimit) -> URL? {
+        switch brand {
+        case .claude, .codex:
+            return GoogleCalendarEventBuilder.eventURL(
+                serviceName: title,
+                resetDate: limit.resetsAt,
+                language: language
+            )
+        case .copilot:
+            return nil
+        }
     }
 }
