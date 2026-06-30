@@ -3,7 +3,7 @@ import AppKit
 
 @main
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private let viewModel = UsageViewModel()
     private let languageStore = LanguageStore()
     private let launchAtLogin = LaunchAtLoginStore()
@@ -12,7 +12,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private let popover = NSPopover()
     private var pollingTask: Task<Void, Never>?
     private var shutdownHandler: (@Sendable () async -> Void)?
-    private weak var anchorButton: NSStatusBarButton?
 
     static func main() {
         let app = NSApplication.shared
@@ -51,12 +50,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private func configurePopover() {
         popover.behavior = .transient
         popover.animates = true
-        popover.delegate = self
-        popover.contentViewController = NSHostingController(rootView: UsagePopoverView(
+        let hosting = NSHostingController(rootView: UsagePopoverView(
             viewModel: viewModel,
             languageStore: languageStore,
             launchAtLogin: launchAtLogin
         ))
+        // SwiftUI のレイアウトサイズを NSPopover の contentSize に反映させる。
+        // これを設定しないと contentSize が既定の 320x320 のまま残り、NSPopover は
+        // 320 を基準に位置決めしつつ実コンテンツ (約 500x420) を描画するため、
+        // ウィンドウが上にずれて画面上端（メニューバー）にめり込み、ヘッダーが見切れる。
+        hosting.sizingOptions = [.preferredContentSize]
+        popover.contentViewController = hosting
     }
 
     private func updateStatusItemImage() {
@@ -79,35 +83,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     private func showPopover(relativeTo button: NSStatusBarButton) {
-        anchorButton = button
         launchAtLogin.refresh()
+        // AppKit に配置を任せる。NSPopover の裏側ウィンドウを setFrame で動かすと、
+        // アローをアイコンに向けたままコンテンツだけがずれて見切れる（左に寄って途切れる）ため、
+        // 手動センタリングは行わない。NSPopover は自動で画面内に収め、アローをアイコンに向ける。
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        centerPopover(relativeTo: button)
-        DispatchQueue.main.async { [weak self, weak button] in
-            guard let self, let button else { return }
-            self.centerPopover(relativeTo: button)
-        }
-    }
-
-    func popoverDidShow(_ notification: Notification) {
-        guard let anchorButton else { return }
-        centerPopover(relativeTo: anchorButton)
-    }
-
-    private func centerPopover(relativeTo button: NSStatusBarButton) {
-        guard
-            let popoverWindow = popover.contentViewController?.view.window,
-            let buttonWindow = button.window
-        else { return }
-
-        let anchorFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
-        let visibleFrame = (buttonWindow.screen ?? NSScreen.main)?.visibleFrame ?? anchorFrame
-        let positioned = CenteredPopoverPositioner.positionedFrame(
-            currentFrame: popoverWindow.frame,
-            anchorFrame: anchorFrame,
-            visibleFrame: visibleFrame
-        )
-        popoverWindow.setFrame(positioned, display: true)
     }
 
     nonisolated func applicationWillTerminate(_ notification: Notification) {
