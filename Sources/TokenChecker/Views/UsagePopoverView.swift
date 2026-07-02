@@ -17,6 +17,7 @@ struct UsagePopoverView: View {
         }
         .padding(12)
         .frame(width: 320)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.88))
     }
 
     private var header: some View {
@@ -305,11 +306,7 @@ private struct LimitBlockView: View {
         .frame(maxWidth: .infinity, minHeight: 70, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.clear)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.5)
+                .fill(Color.secondary.opacity(0.10))
         )
     }
 
