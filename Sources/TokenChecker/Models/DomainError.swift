@@ -9,11 +9,6 @@ enum DomainError: Error, Equatable, LocalizedError, Sendable {
     case codexProcessExited
     case codexRPCError(message: String)
     case decoding(String)
-    case copilotTokenMissing
-    case copilotUnauthorized
-    case copilotNotSubscribed
-    case copilotRateLimited(retryAfter: TimeInterval?)
-    case copilotHTTP(status: Int)
     case timeout
     case network(String)
     case invalidResponse
@@ -46,20 +41,6 @@ enum DomainError: Error, Equatable, LocalizedError, Sendable {
             return L10n.tr("error.codex_process_exited", language: language)
         case .codexRPCError(let message):
             return L10n.format("error.codex_rpc", language: language, message)
-        case .copilotTokenMissing:
-            return L10n.tr("error.copilot_token_missing", language: language)
-        case .copilotUnauthorized:
-            return L10n.tr("error.copilot_unauthorized", language: language)
-        case .copilotNotSubscribed:
-            return L10n.tr("error.copilot_not_subscribed", language: language)
-        case .copilotRateLimited(let retryAfter):
-            if let sec = retryAfter {
-                let mins = max(1, Int((sec / 60).rounded()))
-                return L10n.format("error.copilot_rate_limited_with_retry", language: language, mins)
-            }
-            return L10n.tr("error.copilot_rate_limited", language: language)
-        case .copilotHTTP(let status):
-            return L10n.format("error.copilot_http", language: language, status)
         case .decoding(let detail):
             return L10n.format("error.decoding", language: language, detail)
         case .timeout:

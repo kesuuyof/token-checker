@@ -10,26 +10,21 @@ struct RateLimit: Equatable, Sendable {
     var percent: Int { Int((utilization * 100).rounded()) }
 }
 
-/// 1 サービス（Claude / Codex / Copilot）の使用状況。
+/// 1 サービス（Claude / Codex）の使用状況。
 struct ServiceUsage: Equatable, Sendable {
     let fiveHour: RateLimit?
     let weekly: RateLimit?
     /// Claude のみ。Sonnet 専用 7d ウィンドウ。
     let weeklySonnet: RateLimit?
-    /// Copilot Free プランの場合に true。主スロットの意味が
-    /// 「プレミアム要求」ではなく「チャット」になるためラベルを差し替える。
-    let copilotFreeMode: Bool
 
     init(
         fiveHour: RateLimit?,
         weekly: RateLimit?,
-        weeklySonnet: RateLimit?,
-        copilotFreeMode: Bool = false
+        weeklySonnet: RateLimit?
     ) {
         self.fiveHour = fiveHour
         self.weekly = weekly
         self.weeklySonnet = weeklySonnet
-        self.copilotFreeMode = copilotFreeMode
     }
 }
 
@@ -37,8 +32,7 @@ struct ServiceUsage: Equatable, Sendable {
 struct UsageSnapshot: Equatable, Sendable {
     let claude: Result<ServiceUsage, DomainError>?
     let codex: Result<ServiceUsage, DomainError>?
-    let copilot: Result<ServiceUsage, DomainError>?
     let fetchedAt: Date
 
-    static let empty = UsageSnapshot(claude: nil, codex: nil, copilot: nil, fetchedAt: .distantPast)
+    static let empty = UsageSnapshot(claude: nil, codex: nil, fetchedAt: .distantPast)
 }
