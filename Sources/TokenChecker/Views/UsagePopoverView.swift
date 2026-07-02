@@ -305,7 +305,11 @@ private struct LimitBlockView: View {
         .frame(maxWidth: .infinity, minHeight: 70, alignment: .topLeading)
         .background(
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.secondary.opacity(0.10))
+                .fill(Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.secondary.opacity(0.12), lineWidth: 0.5)
         )
     }
 
