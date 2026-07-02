@@ -17,6 +17,7 @@ struct UsagePopoverView: View {
         }
         .padding(12)
         .frame(width: 320)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.70))
     }
 
     private var header: some View {
