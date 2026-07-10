@@ -8,7 +8,7 @@ macOS のメニューバーに Claude Code と Codex の使用率を常時表示
 
 ## 概要
 
-ターミナルで `claude login` / `codex login` を完了済みのアカウントに対し、Anthropic の OAuth エンドポイントおよび `codex app-server` の JSON-RPC を経由してレート制限情報を取得する。取得結果はメニューバーに 2 個のドーナツチャートと数値で表示され、クリックでポップオーバーに 5 時間ウィンドウと週次ウィンドウの詳細を展開する。
+ターミナルで `claude login` / `codex login` を完了済みのアカウントに対し、保存済み OAuth セッションを再利用してレート制限情報を取得する。取得結果はメニューバーに 2 個のドーナツチャートと数値で表示され、クリックでポップオーバーに 5 時間ウィンドウと週次ウィンドウの詳細を展開する。
 
 ## 動作要件
 
@@ -59,7 +59,7 @@ codex login
 ## データ取得経路
 
 - **Claude**: `/usr/bin/security` 経由で Keychain (`Claude Code-credentials`) から OAuth アクセストークンを取得し、`https://api.anthropic.com/api/oauth/usage` に対して `anthropic-beta: oauth-2025-04-20` ヘッダー付きで GET する。
-- **Codex**: `codex` バイナリを子プロセスとして起動し、行区切り JSON-RPC 経由で `account/rateLimits/read` を呼ぶ。バイナリの場所は Homebrew / nodebrew / nvm / volta / asdf / fnm 等の主要なインストール先を順に探索し、見つからない場合はログインシェル経由で `command -v codex` を解決する。`UserDefaults` の `codexPath` キーで手動指定も可能 (`defaults write com.token-checker.app codexPath /abs/path/codex`)。起動コマンドは CLI バージョンに応じて自動的に切り替わる (`codex app-server daemon start` + `codex app-server proxy` 形式と `codex app-server` 単体形式の双方をサポート)。
+- **Codex**: `$CODEX_HOME/auth.json`（未設定時は `~/.codex/auth.json`）に保存された OAuth セッションを読み、`https://chatgpt.com/backend-api/wham/usage` から使用量を取得する。Token Checker 独自のログインは不要だが、事前に `codex login` 済みである必要がある。トークンの期限切れ時は refresh token で安全に更新する。資格情報がない、失効している、または API が認証を拒否した場合だけ、互換経路として `codex app-server` の JSON-RPC `account/rateLimits/read` を呼ぶ。互換経路では Codex CLI を探索し、必要に応じて `UserDefaults` の `codexPath` キーで手動指定できる (`defaults write com.token-checker.app codexPath /abs/path/codex`)。
 
 ## アップデート
 
@@ -104,7 +104,7 @@ A macOS menu bar application that displays Claude Code and Codex usage in real t
 
 ## Overview
 
-For accounts already authenticated via `claude login` / `codex login`, this app retrieves rate-limit information through the Anthropic OAuth endpoint and the `codex app-server` JSON-RPC. Results are shown as two donut charts with numeric values in the menu bar; clicking opens a popover with detailed 5-hour and weekly window data.
+For accounts already authenticated via `claude login` / `codex login`, this app reuses the stored OAuth sessions to retrieve rate-limit information. Results are shown as two donut charts with numeric values in the menu bar; clicking opens a popover with detailed 5-hour and weekly window data.
 
 ## Requirements
 
@@ -149,7 +149,7 @@ The popover (opened by clicking the menu bar item) shows 5-hour and weekly windo
 ## Data Sources
 
 - **Claude**: retrieves the OAuth access token from Keychain (`Claude Code-credentials`) via `/usr/bin/security`, then issues a GET request to `https://api.anthropic.com/api/oauth/usage` with the `anthropic-beta: oauth-2025-04-20` header.
-- **Codex**: spawns the `codex` binary as a subprocess and calls `account/rateLimits/read` via line-delimited JSON-RPC. The binary is discovered by probing common install locations (Homebrew, nodebrew, nvm, volta, asdf, fnm, ...) and falling back to `command -v codex` via the user's login shell. A manual override is available via the `UserDefaults` `codexPath` key (`defaults write com.token-checker.app codexPath /abs/path/codex`). The launch command adapts to the installed CLI version automatically and supports both `codex app-server daemon start` + `codex app-server proxy` (v0.133+) and the single-arg `codex app-server` form (v0.130 and earlier).
+- **Codex**: reads the existing OAuth session from `$CODEX_HOME/auth.json` (or `~/.codex/auth.json`) and retrieves usage from `https://chatgpt.com/backend-api/wham/usage`. No Token Checker-specific login is required, but the user must already have authenticated with `codex login`. Expired tokens are refreshed safely with the stored refresh token. Only missing, expired, or rejected credentials fall back to the `codex app-server` JSON-RPC `account/rateLimits/read` route. That compatibility route discovers the Codex CLI from common install locations or a `UserDefaults` `codexPath` override (`defaults write com.token-checker.app codexPath /abs/path/codex`).
 
 ## Updating
 

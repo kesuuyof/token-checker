@@ -25,3 +25,8 @@ SOFTWARE.
 This software includes UI design portions derived from ccmeter
 (https://github.com/s-age/ccmeter), distributed under the MIT License by
 s-age. The same MIT terms above apply to those portions.
+
+This software includes Codex OAuth usage retrieval portions derived from
+CodexBar (https://github.com/steipete/CodexBar), distributed under the MIT
+License. Copyright (c) 2026 Peter Steinberger. The same MIT terms above apply
+to those portions.
