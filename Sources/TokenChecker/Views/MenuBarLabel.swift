@@ -1,7 +1,7 @@
 import SwiftUI
 import AppKit
 
-/// メニューバーに表示する「2 つのドーナツ + %」。
+/// メニューバーに表示する「サービス記号 + 2 段ミニバー」。
 ///
 /// SwiftUI ビューを `ImageRenderer` で NSImage に焼いて、
 /// `Image(nsImage:)` でメニューバーに渡す。
@@ -13,7 +13,7 @@ struct MenuBarLabel: View {
         if let image = MenuBarLabelRenderer.image(viewModel: viewModel) {
             Image(nsImage: image)
         } else {
-            Text("TC ⏳")
+            Text("TC")
         }
     }
 }
@@ -21,32 +21,20 @@ struct MenuBarLabel: View {
 enum MenuBarLabelRenderer {
     @MainActor
     static func image(viewModel: UsageViewModel) -> NSImage? {
-        let claude = utilization(from: viewModel.snapshot.claude)
-        let codex = utilization(from: viewModel.snapshot.codex)
-        let copilot = utilization(from: viewModel.snapshot.copilot)
-        // 横幅節約のため % の文字列表示は持たず、ドーナツのリング塗り（量）と
-        // 色（緑 <70% / 橙 <85% / 赤）だけで使用率を表す。
         let content = HStack(spacing: 4) {
-            DonutChartView(
-                value: claude ?? 0,
-                size: 20,
-                lineWidth: 3,
-                center: .sfSymbol("sparkles", scale: 0.48)
+            MenuBarServiceUnit(
+                symbolName: "sparkles",
+                fiveHour: values(from: viewModel.snapshot.claude).fiveHour,
+                weekly: values(from: viewModel.snapshot.claude).weekly
             )
-            DonutChartView(
-                value: codex ?? 0,
-                size: 20,
-                lineWidth: 3,
-                center: .sfSymbol("terminal.fill", scale: 0.48)
-            )
-            DonutChartView(
-                value: copilot ?? 0,
-                size: 20,
-                lineWidth: 3,
-                center: .sfSymbol("chevron.left.forwardslash.chevron.right", scale: 0.42)
+            MenuBarServiceUnit(
+                symbolName: "terminal.fill",
+                fiveHour: values(from: viewModel.snapshot.codex).fiveHour,
+                weekly: values(from: viewModel.snapshot.codex).weekly
             )
         }
         .padding(.horizontal, 2)
+        .padding(.vertical, 1)
         .foregroundStyle(Color.primary)
 
         let renderer = ImageRenderer(content: content)
@@ -59,8 +47,49 @@ enum MenuBarLabelRenderer {
         return image
     }
 
-    private static func utilization(from result: Result<ServiceUsage, DomainError>?) -> Double? {
-        guard case .success(let usage) = result else { return nil }
-        return usage.fiveHour?.utilization
+    private static func values(
+        from result: Result<ServiceUsage, DomainError>?
+    ) -> (fiveHour: Double?, weekly: Double?) {
+        guard case .success(let usage) = result else {
+            return (nil, nil)
+        }
+        return (usage.fiveHour?.utilization, usage.weekly?.utilization)
+    }
+}
+
+private struct MenuBarServiceUnit: View {
+    let symbolName: String
+    let fiveHour: Double?
+    let weekly: Double?
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 3) {
+            Image(systemName: symbolName)
+                .font(.system(size: 8.5, weight: .semibold))
+                .frame(width: 9)
+            VStack(spacing: 1.5) {
+                MiniUsageBar(value: fiveHour)
+                MiniUsageBar(value: weekly)
+            }
+        }
+    }
+}
+
+private struct MiniUsageBar: View {
+    let value: Double?
+
+    var body: some View {
+        ZStack(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 1.5)
+                .fill(Color.gray.opacity(0.3))
+            if let value {
+                GeometryReader { proxy in
+                    RoundedRectangle(cornerRadius: 1.5)
+                        .fill(UsageColor.color(for: value))
+                        .frame(width: proxy.size.width * min(max(value, 0), 1))
+                }
+            }
+        }
+        .frame(width: 18, height: 3)
     }
 }

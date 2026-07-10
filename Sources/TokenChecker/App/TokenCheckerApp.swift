@@ -84,6 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func showPopover(relativeTo button: NSStatusBarButton) {
         launchAtLogin.refresh()
+        NSApp.activate(ignoringOtherApps: true)
         // AppKit に配置を任せる。NSPopover の裏側ウィンドウを setFrame で動かすと、
         // アローをアイコンに向けたままコンテンツだけがずれて見切れる（左に寄って途切れる）ため、
         // 手動センタリングは行わない。NSPopover は自動で画面内に収め、アローをアイコンに向ける。

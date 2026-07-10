@@ -5,86 +5,75 @@ struct UsagePopoverView: View {
     @Bindable var viewModel: UsageViewModel
     @Bindable var languageStore: LanguageStore
     @ObservedObject var launchAtLogin: LaunchAtLoginStore
+    @State private var showsSettings = false
 
     private var language: AppLanguage { languageStore.selectedLanguage }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
             header
-            usageMatrix
-            settingsBlock
+            serviceCards
             footer
         }
-        .padding(14)
-        .frame(width: 500)
+        .padding(12)
+        .frame(width: 320)
+        .background(Color(nsColor: .windowBackgroundColor).opacity(0.70))
     }
 
     private var header: some View {
-        HStack {
+        HStack(spacing: 8) {
             Text("Token Checker")
                 .font(.system(size: 14, weight: .semibold))
             Spacer()
-            Text(L10n.tr("usage.matrix.overview", language: language))
-                .font(.system(size: 10))
-                .foregroundStyle(.tertiary)
-        }
-    }
-
-    private var usageMatrix: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 7) {
-                GridRow {
-                    matrixHeader(L10n.tr("usage.matrix.agent", language: language))
-                    matrixHeader(L10n.tr("window.five_hour", language: language))
-                    matrixHeader(L10n.tr("window.weekly", language: language))
-                    matrixHeader(L10n.tr("usage.matrix.calendar", language: language))
-                        .frame(maxWidth: .infinity, alignment: .center)
-                }
-
-                UsageMatrixRow(
-                    title: "Claude",
-                    subtitle: "Code",
-                    brand: .claude,
-                    result: viewModel.snapshot.claude,
-                    language: language,
-                    loginAction: { viewModel.openClaudeLogin() }
-                )
-
-                UsageMatrixRow(
-                    title: "Codex",
-                    subtitle: "OpenAI",
-                    brand: .codex,
-                    result: viewModel.snapshot.codex,
-                    language: language,
-                    loginAction: { viewModel.openCodexLogin() }
-                )
-
-                UsageMatrixRow(
-                    title: "Copilot",
-                    subtitle: "GitHub",
-                    brand: .copilot,
-                    result: viewModel.snapshot.copilot,
-                    language: language,
-                    loginAction: { viewModel.openCopilotLogin() }
-                )
+            Button {
+                showsSettings.toggle()
+            } label: {
+                Image(systemName: "gearshape")
             }
+            .buttonStyle(.borderless)
+            .help(L10n.tr("settings.title", language: language))
+            .popover(isPresented: $showsSettings, arrowEdge: .top) {
+                settingsPopover
+            }
+
+            Button {
+                Task { await viewModel.refresh() }
+            } label: {
+                if viewModel.isLoading {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+            .buttonStyle(.borderless)
+            .help(L10n.tr("footer.refresh_now", language: language))
         }
     }
 
-    private func matrixHeader(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 10, weight: .medium))
-            .foregroundStyle(.tertiary)
+    private var serviceCards: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ServiceCardView(
+                brand: .claude,
+                result: viewModel.snapshot.claude,
+                language: language,
+                loginAction: { viewModel.openClaudeLogin() }
+            )
+
+            ServiceCardView(
+                brand: .codex,
+                result: viewModel.snapshot.codex,
+                language: language,
+                loginAction: { viewModel.openCodexLogin() }
+            )
+        }
     }
 
-    private var settingsBlock: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            Divider()
+    private var settingsPopover: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(L10n.tr("settings.title", language: language))
+                .font(.system(size: 13, weight: .semibold))
 
-            HStack {
-                Text(L10n.tr("settings.refresh_interval", language: language))
-                    .settingsLabelStyle()
-                Spacer()
+            settingsRow(label: L10n.tr("settings.refresh_interval", language: language)) {
                 Picker("", selection: $viewModel.pollingInterval) {
                     ForEach(PollingInterval.allCases) { interval in
                         Text(interval.label(language: language)).tag(interval)
@@ -94,10 +83,7 @@ struct UsagePopoverView: View {
                 .fixedSize()
             }
 
-            HStack {
-                Text(L10n.tr("settings.language", language: language))
-                    .settingsLabelStyle()
-                Spacer()
+            settingsRow(label: L10n.tr("settings.language", language: language)) {
                 Picker("", selection: $languageStore.selectedLanguage) {
                     ForEach(AppLanguage.allCases) { option in
                         Text(L10n.tr(option.displayKey, language: option)).tag(option)
@@ -107,10 +93,7 @@ struct UsagePopoverView: View {
                 .fixedSize()
             }
 
-            HStack {
-                Text(L10n.tr("settings.launch_at_login", language: language))
-                    .settingsLabelStyle()
-                Spacer()
+            settingsRow(label: L10n.tr("settings.launch_at_login", language: language)) {
                 Toggle("", isOn: Binding(
                     get: { launchAtLogin.isEnabled },
                     set: { _ in launchAtLogin.toggle() }
@@ -120,41 +103,42 @@ struct UsagePopoverView: View {
                 .controlSize(.mini)
             }
         }
+        .padding(12)
+        .frame(width: 250)
+    }
+
+    private func settingsRow<Content: View>(
+        label: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Spacer()
+            content()
+        }
     }
 
     private var footer: some View {
-        VStack(spacing: 10) {
-            Divider()
-            HStack {
-                if viewModel.snapshot.fetchedAt > .distantPast {
-                    Text(L10n.format(
-                        "footer.updated_at",
-                        language: language,
-                        formattedTime(viewModel.snapshot.fetchedAt)
-                    ))
-                    .font(.system(size: 10))
-                    .foregroundStyle(.tertiary)
-                }
-                Spacer()
-                Button {
-                    Task { await viewModel.refresh() }
-                } label: {
-                    if viewModel.isLoading {
-                        ProgressView().controlSize(.small)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                }
-                .buttonStyle(.borderless)
-                .help(L10n.tr("footer.refresh_now", language: language))
-
-                Button(L10n.tr("footer.quit", language: language)) {
-                    NSApplication.shared.terminate(nil)
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(.secondary)
+        HStack {
+            if viewModel.snapshot.fetchedAt > .distantPast {
+                Text(L10n.format(
+                    "footer.updated_at",
+                    language: language,
+                    formattedTime(viewModel.snapshot.fetchedAt)
+                ))
+                .font(.system(size: 10))
+                .foregroundStyle(.tertiary)
             }
+            Spacer()
+            Button(L10n.tr("footer.quit", language: language)) {
+                NSApplication.shared.terminate(nil)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
         }
+        .padding(.top, 2)
     }
 
     private func formattedTime(_ date: Date) -> String {
@@ -166,52 +150,66 @@ struct UsagePopoverView: View {
     }
 }
 
-private struct UsageMatrixRow: View {
-    let title: String
-    let subtitle: String
+private struct ServiceCardView: View {
     let brand: ServiceBrand
     let result: Result<ServiceUsage, DomainError>?
     let language: AppLanguage
     let loginAction: () -> Void
 
     var body: some View {
-        switch result {
-        case .none:
-            loadingRow
-        case .some(.success(let usage)):
-            successRow(usage)
-        case .some(.failure(let error)):
-            errorRow(error)
+        VStack(alignment: .leading, spacing: 8) {
+            header
+            content
+        }
+        .padding(9)
+        .serviceCardBackground(tint: backgroundTint)
+    }
+
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: brand.symbolName)
+                .font(.system(size: 12, weight: .semibold))
+                .frame(width: 14)
+            Text(brand.title)
+                .font(.system(size: 12, weight: .bold))
+            Text(brand.subtitle)
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+            Spacer()
+            Circle()
+                .fill(statusColor)
+                .frame(width: 7, height: 7)
         }
     }
 
-    private var loadingRow: some View {
-        GridRow {
-            agentCell
+    @ViewBuilder
+    private var content: some View {
+        switch result {
+        case .none:
             Text(L10n.tr("status.loading", language: language))
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
-                .gridCellColumns(3)
-        }
-        .matrixRowBackground()
-    }
-
-    private func successRow(_ usage: ServiceUsage) -> some View {
-        GridRow {
-            agentCell
-            LimitCellView(limit: usage.fiveHour, language: language)
-                .frame(minWidth: 145)
-            LimitCellView(limit: usage.weekly, language: language, extraLimit: usage.weeklySonnet)
-                .frame(minWidth: 145)
-            calendarButton(for: usage.weekly)
-        }
-        .matrixRowBackground()
-    }
-
-    private func errorRow(_ error: DomainError) -> some View {
-        GridRow {
-            agentCell
-            HStack(spacing: 6) {
+                .frame(maxWidth: .infinity, minHeight: 54, alignment: .leading)
+        case .some(.success(let usage)):
+            HStack(alignment: .top, spacing: 8) {
+                LimitBlockView(
+                    title: L10n.tr("window.five_hour", language: language),
+                    noDataText: L10n.tr("window.five_hour.no_data", language: language),
+                    limit: usage.fiveHour,
+                    language: language,
+                    showsWeeklyDots: false
+                )
+                LimitBlockView(
+                    title: L10n.tr("window.weekly", language: language),
+                    noDataText: L10n.tr("window.weekly.no_data", language: language),
+                    limit: usage.weekly,
+                    language: language,
+                    showsWeeklyDots: true,
+                    extraLimit: usage.weeklySonnet
+                )
+            }
+        case .some(.failure(let error)):
+            HStack(alignment: .center, spacing: 8) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                 VStack(alignment: .leading, spacing: 2) {
@@ -222,133 +220,99 @@ private struct UsageMatrixRow: View {
                         .foregroundStyle(.secondary)
                         .lineLimit(2)
                 }
-                Spacer()
+                Spacer(minLength: 4)
+                Button {
+                    loginAction()
+                } label: {
+                    Image(systemName: "person.badge.key")
+                }
+                .buttonStyle(.borderless)
+                .help(L10n.format("service.login.help", language: language, brand.title))
             }
-            .gridCellColumns(2)
-            Button {
-                loginAction()
-            } label: {
-                Image(systemName: "person.badge.key")
-            }
-            .buttonStyle(.borderless)
-            .help(L10n.format("service.login.help", language: language, title))
-        }
-        .matrixRowBackground(tint: .orange)
-    }
-
-    private var agentCell: some View {
-        HStack(spacing: 7) {
-            brandMark
-                .font(.system(size: 12, weight: .semibold))
-                .foregroundStyle(.primary)
-                .frame(width: 15)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                    .font(.system(size: 12, weight: .semibold))
-                Text(subtitle)
-                    .font(.system(size: 9))
-                    .foregroundStyle(.tertiary)
-            }
-        }
-        .frame(width: 76, alignment: .leading)
-        .frame(minHeight: 46)
-    }
-
-    @ViewBuilder
-    private var brandMark: some View {
-        switch brand {
-        case .claude:
-            Image(systemName: "sparkles")
-        case .codex:
-            Image(systemName: "terminal.fill")
-        case .copilot:
-            Image(systemName: "chevron.left.forwardslash.chevron.right")
+            .frame(minHeight: 54)
         }
     }
 
-    @ViewBuilder
-    private func calendarButton(for weekly: RateLimit?) -> some View {
-        if let weekly,
-           let calendarURL = weeklyReminderURL(for: weekly)
-        {
-            Button {
-                NSWorkspace.shared.open(calendarURL)
-            } label: {
-                Image(systemName: "calendar.badge.plus")
-            }
-            .buttonStyle(.borderless)
-            .help(L10n.tr("calendar.reset_reminder.help", language: language))
-            .frame(width: 34)
-            .frame(minHeight: 46)
-        } else {
-            Image(systemName: "minus")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.tertiary)
-                .frame(width: 34)
-                .frame(minHeight: 46)
+    private var statusColor: Color {
+        switch result {
+        case .some(.success):
+            return .green
+        case .some(.failure):
+            return .orange
+        case .none:
+            return .secondary.opacity(0.5)
         }
     }
 
-    private func weeklyReminderURL(for limit: RateLimit) -> URL? {
-        switch brand {
-        case .claude, .codex:
-            return GoogleCalendarEventBuilder.eventURL(
-                serviceName: title,
-                resetDate: limit.resetsAt,
-                language: language
-            )
-        case .copilot:
-            return nil
-        }
+    private var backgroundTint: Color? {
+        if case .some(.failure) = result { return .orange }
+        return nil
     }
 }
 
-private struct LimitCellView: View {
+private struct LimitBlockView: View {
+    let title: String
+    let noDataText: String
     let limit: RateLimit?
     let language: AppLanguage
+    let showsWeeklyDots: Bool
     var extraLimit: RateLimit?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: 5) {
             if let limit {
                 let presentation = UsageLimitCellFormatter.presentation(
                     for: limit,
                     language: language
                 )
-                HStack(alignment: .firstTextBaseline) {
+                Text(labelText(presentation: presentation))
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+
+                HStack(alignment: .firstTextBaseline, spacing: 4) {
                     Text(presentation.percentText)
-                        .font(.system(size: 12, weight: .bold))
-                        .foregroundStyle(color(for: limit.utilization))
-                    Spacer(minLength: 6)
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(UsageColor.color(for: limit.utilization))
+                    Spacer(minLength: 2)
                     Text(presentation.remainingText)
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(color(for: limit.utilization))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.75)
-                }
-                HStack(alignment: .firstTextBaseline) {
-                    Text(L10n.tr("usage.matrix.reset", language: language))
-                        .font(.system(size: 9))
-                        .foregroundStyle(.tertiary)
-                    Spacer(minLength: 6)
-                    Text(presentation.resetText)
-                        .font(.system(size: 9))
+                        .font(.system(size: 9, weight: .semibold))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.7)
                 }
-                ProgressBarView(value: limit.utilization, height: 6)
+
+                ProgressBarView(value: limit.utilization, height: 5)
+
+                if showsWeeklyDots {
+                    WeekDotsView(fillFractions: WeeklyWindowSegments.fillFractions(resetsAt: limit.resetsAt))
+                }
+
                 if let extraLimit {
                     extraLimitLine(extraLimit)
                 }
             } else {
-                Text(L10n.tr("usage.matrix.no_data", language: language))
+                Text(title)
+                    .font(.system(size: 8, weight: .medium))
+                    .foregroundStyle(.tertiary)
+                Text(noDataText)
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .frame(minHeight: 46)
+        .padding(7)
+        .frame(maxWidth: .infinity, minHeight: 70, alignment: .topLeading)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.secondary.opacity(0.10))
+        )
+    }
+
+    private func labelText(presentation: UsageLimitCellPresentation) -> String {
+        guard showsWeeklyDots else { return title }
+        return "\(title) · \(presentation.resetText)"
     }
 
     private func extraLimitLine(_ limit: RateLimit) -> some View {
@@ -356,46 +320,94 @@ private struct LimitCellView: View {
             for: limit,
             language: language
         )
-        return HStack(spacing: 5) {
+        return HStack(spacing: 4) {
             Text(L10n.tr("window.weekly_sonnet", language: language))
-                .font(.system(size: 9))
+                .font(.system(size: 8))
                 .foregroundStyle(.tertiary)
                 .lineLimit(1)
-            Spacer(minLength: 4)
-            Text(presentation.percentText)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(color(for: limit.utilization))
-            Text(presentation.remainingText)
-                .font(.system(size: 9))
+            Spacer(minLength: 2)
+            Text("\(presentation.percentText) / \(presentation.remainingText)")
+                .font(.system(size: 8, weight: .medium))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .minimumScaleFactor(0.65)
+        }
+    }
+}
+
+private struct WeekDotsView: View {
+    let fillFractions: [Double]
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(Array(normalizedFractions.enumerated()), id: \.offset) { _, fraction in
+                WeekDotSegment(fraction: fraction)
+            }
+        }
+        .frame(height: 5)
+    }
+
+    private var normalizedFractions: [Double] {
+        var fractions = Array(fillFractions.prefix(WeeklyWindowSegments.segmentCount))
+        while fractions.count < WeeklyWindowSegments.segmentCount {
+            fractions.append(0)
+        }
+        return fractions
+    }
+}
+
+private struct WeekDotSegment: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2.5)
+                    .fill(Color.gray.opacity(0.25))
+                RoundedRectangle(cornerRadius: 2.5)
+                    .fill(Color.blue.opacity(0.85))
+                    .frame(width: proxy.size.width * min(max(fraction, 0), 1))
+            }
+        }
+    }
+}
+
+private enum ServiceBrand {
+    case claude
+    case codex
+
+    var title: String {
+        switch self {
+        case .claude: return "Claude"
+        case .codex: return "Codex"
         }
     }
 
-    private func color(for value: Double) -> Color {
-        if value < 0.7 { return .green }
-        if value < 0.85 { return .orange }
-        return .red
+    var subtitle: String {
+        switch self {
+        case .claude: return "Code"
+        case .codex: return "OpenAI"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .claude: return "sparkles"
+        case .codex: return "terminal.fill"
+        }
     }
 }
 
 private extension View {
-    func settingsLabelStyle() -> some View {
-        font(.system(size: 11))
-            .foregroundStyle(.secondary)
-    }
-
-    func matrixRowBackground(tint: Color? = nil) -> some View {
+    func serviceCardBackground(tint: Color? = nil) -> some View {
         let baseColor = tint ?? Color.secondary
-        return padding(8)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(baseColor.opacity(0.08))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(tint?.opacity(0.24) ?? Color.clear, lineWidth: 1)
-            )
+        return background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(baseColor.opacity(tint == nil ? 0.08 : 0.10))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(tint?.opacity(0.26) ?? Color.clear, lineWidth: 1)
+        )
     }
 }
