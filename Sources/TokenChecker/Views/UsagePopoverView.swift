@@ -286,7 +286,7 @@ private struct LimitBlockView: View {
                 ProgressBarView(value: limit.utilization, height: 5)
 
                 if showsWeeklyDots {
-                    WeekDotsView(fillFractions: WeeklyWindowSegments.fillFractions(resetsAt: limit.resetsAt))
+                    WeekDotsView(fillFractions: WindowSegments.weeklyFillFractions(resetsAt: limit.resetsAt))
                 }
 
                 if let extraLimit {
@@ -348,8 +348,8 @@ private struct WeekDotsView: View {
     }
 
     private var normalizedFractions: [Double] {
-        var fractions = Array(fillFractions.prefix(WeeklyWindowSegments.segmentCount))
-        while fractions.count < WeeklyWindowSegments.segmentCount {
+        var fractions = Array(fillFractions.prefix(WindowSegments.weeklySegmentCount))
+        while fractions.count < WindowSegments.weeklySegmentCount {
             fractions.append(0)
         }
         return fractions
