@@ -197,14 +197,20 @@ private struct ServiceCardView: View {
                     noDataText: L10n.tr("window.five_hour.no_data", language: language),
                     limit: usage.fiveHour,
                     language: language,
-                    showsWeeklyDots: false
+                    showsResetTime: false,
+                    segmentFillFractions: usage.fiveHour.map {
+                        WindowSegments.fiveHourFillFractions(resetsAt: $0.resetsAt)
+                    }
                 )
                 LimitBlockView(
                     title: L10n.tr("window.weekly", language: language),
                     noDataText: L10n.tr("window.weekly.no_data", language: language),
                     limit: usage.weekly,
                     language: language,
-                    showsWeeklyDots: true,
+                    showsResetTime: true,
+                    segmentFillFractions: usage.weekly.map {
+                        WindowSegments.weeklyFillFractions(resetsAt: $0.resetsAt)
+                    },
                     extraLimit: usage.weeklySonnet
                 )
             }
@@ -255,7 +261,8 @@ private struct LimitBlockView: View {
     let noDataText: String
     let limit: RateLimit?
     let language: AppLanguage
-    let showsWeeklyDots: Bool
+    let showsResetTime: Bool
+    let segmentFillFractions: [Double]?
     var extraLimit: RateLimit?
 
     var body: some View {
@@ -285,8 +292,8 @@ private struct LimitBlockView: View {
 
                 ProgressBarView(value: limit.utilization, height: 5)
 
-                if showsWeeklyDots {
-                    WeekDotsView(fillFractions: WeeklyWindowSegments.fillFractions(resetsAt: limit.resetsAt))
+                if let segmentFillFractions {
+                    WindowSegmentsView(fillFractions: segmentFillFractions)
                 }
 
                 if let extraLimit {
@@ -311,7 +318,7 @@ private struct LimitBlockView: View {
     }
 
     private func labelText(presentation: UsageLimitCellPresentation) -> String {
-        guard showsWeeklyDots else { return title }
+        guard showsResetTime else { return title }
         return "\(title) · \(presentation.resetText)"
     }
 
@@ -335,28 +342,20 @@ private struct LimitBlockView: View {
     }
 }
 
-private struct WeekDotsView: View {
+private struct WindowSegmentsView: View {
     let fillFractions: [Double]
 
     var body: some View {
         HStack(spacing: 2) {
-            ForEach(Array(normalizedFractions.enumerated()), id: \.offset) { _, fraction in
-                WeekDotSegment(fraction: fraction)
+            ForEach(Array(fillFractions.enumerated()), id: \.offset) { _, fraction in
+                WindowSegment(fraction: fraction)
             }
         }
         .frame(height: 5)
     }
-
-    private var normalizedFractions: [Double] {
-        var fractions = Array(fillFractions.prefix(WeeklyWindowSegments.segmentCount))
-        while fractions.count < WeeklyWindowSegments.segmentCount {
-            fractions.append(0)
-        }
-        return fractions
-    }
 }
 
-private struct WeekDotSegment: View {
+private struct WindowSegment: View {
     let fraction: Double
 
     var body: some View {
