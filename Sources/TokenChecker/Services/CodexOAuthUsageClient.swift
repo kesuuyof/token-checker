@@ -46,8 +46,8 @@ struct CodexOAuthUsageClient: Sendable {
         }
 
         return ServiceUsage(
-            fiveHour: payload.rateLimit?.primaryWindow?.rateLimit,
-            weekly: payload.rateLimit?.secondaryWindow?.rateLimit,
+            fiveHour: payload.rateLimit?.rateLimit(windowDuration: 5 * 60 * 60),
+            weekly: payload.rateLimit?.rateLimit(windowDuration: 7 * 24 * 60 * 60),
             weeklySonnet: nil
         )
     }
@@ -78,15 +78,24 @@ private struct UsageResponse: Decodable {
             case primaryWindow = "primary_window"
             case secondaryWindow = "secondary_window"
         }
+
+        func rateLimit(windowDuration: TimeInterval) -> RateLimit? {
+            [primaryWindow, secondaryWindow]
+                .compactMap { $0 }
+                .first { $0.limitWindowSeconds == windowDuration }?
+                .rateLimit
+        }
     }
 
     struct Window: Decodable {
         let usedPercent: Double?
         let resetAt: TimeInterval?
+        let limitWindowSeconds: TimeInterval?
 
         enum CodingKeys: String, CodingKey {
             case usedPercent = "used_percent"
             case resetAt = "reset_at"
+            case limitWindowSeconds = "limit_window_seconds"
         }
 
         var rateLimit: RateLimit? {
