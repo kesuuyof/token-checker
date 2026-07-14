@@ -31,6 +31,53 @@ final class CodexOAuthUsageClientTests: XCTestCase {
         XCTAssertEqual(usage.weekly?.utilization, 0.5)
         XCTAssertEqual(usage.fiveHour?.resetsAt.timeIntervalSince1970, 1_800_000_000)
     }
+
+    func testFetchMapsPrimaryWeeklyWindowAndLeavesFiveHourNilWhenFiveHourIsOmitted() async throws {
+        let client = CodexOAuthUsageClient { request in
+            let response = HTTPURLResponse(
+                url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil
+            )!
+            return (
+                Data(
+                    #"{"rate_limit":{"primary_window":{"used_percent":6,"reset_at":1800000000,"limit_window_seconds":604800},"secondary_window":null}}"#.utf8
+                ),
+                response
+            )
+        }
+
+        let usage = try await client.fetch(
+            credentials: CodexOAuthCredentials(
+                accessToken: "access", refreshToken: "refresh", accountId: nil, lastRefresh: nil
+            )
+        )
+
+        XCTAssertNil(usage.fiveHour)
+        XCTAssertEqual(usage.weekly?.utilization, 0.06)
+        XCTAssertEqual(usage.weekly?.resetsAt.timeIntervalSince1970, 1_800_000_000)
+    }
+
+    func testFetchIgnoresWindowsWithUnsupportedDuration() async throws {
+        let client = CodexOAuthUsageClient { request in
+            let response = HTTPURLResponse(
+                url: try XCTUnwrap(request.url), statusCode: 200, httpVersion: nil, headerFields: nil
+            )!
+            return (
+                Data(
+                    #"{"rate_limit":{"primary_window":{"used_percent":50,"reset_at":1800000000,"limit_window_seconds":3600},"secondary_window":null}}"#.utf8
+                ),
+                response
+            )
+        }
+
+        let usage = try await client.fetch(
+            credentials: CodexOAuthCredentials(
+                accessToken: "access", refreshToken: "refresh", accountId: nil, lastRefresh: nil
+            )
+        )
+
+        XCTAssertNil(usage.fiveHour)
+        XCTAssertNil(usage.weekly)
+    }
 }
 
 private actor RequestRecorder {
